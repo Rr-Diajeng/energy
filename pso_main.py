@@ -59,6 +59,15 @@ def pso(n_particles=N_PARTICLES):
     gbest = None
     for particle, result in zip(particles, evaluated):
         f = _to_real(result['fitness'])
+        if result['erase']:
+            particle['cappv'] = float(random.randint(CAPPV_MIN, CAPPV_MAX))
+            particle['ebess'] = float(random.randint(EBESS_MIN, EBESS_MAX))
+            particle['v_cappv'] = random.uniform(-V_MAX, V_MAX)
+            particle['v_ebess'] = random.uniform(-V_MAX, V_MAX)
+            particle['pbest_cappv'] = particle['cappv']
+            particle['pbest_ebess'] = particle['ebess']
+            particle['pbest_fitness'] = float('inf')
+            continue
         particle['pbest_fitness'] = f
         if gbest is None or f < gbest['fitness']:
             gbest = {
@@ -109,6 +118,16 @@ def pso(n_particles=N_PARTICLES):
 
         for particle, result in zip(particles, evaluated):
             f = _to_real(result['fitness'])
+
+            if result['erase']:
+                particle['cappv'] = float(random.randint(CAPPV_MIN, CAPPV_MAX))
+                particle['ebess'] = float(random.randint(EBESS_MIN, EBESS_MAX))
+                particle['v_cappv'] = random.uniform(-V_MAX, V_MAX)
+                particle['v_ebess'] = random.uniform(-V_MAX, V_MAX)
+                particle['pbest_cappv'] = particle['cappv']
+                particle['pbest_ebess'] = particle['ebess']
+                particle['pbest_fitness'] = float('inf')
+                continue
 
             if f < particle['pbest_fitness']:
                 particle['pbest_fitness'] = f

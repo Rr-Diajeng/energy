@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import csv
 
-POPULATION_SIZE = 100
+POPULATION_SIZE = 70
 GENOME_LENGTH = 15
 
 def check(population):

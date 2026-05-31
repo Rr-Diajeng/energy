@@ -9,13 +9,13 @@ import matplotlib.pyplot as plt
 
 from ga_main import genetic_algorithm, POPULATION_SIZE
 
-FIXED_POPULATION_SIZE = 100
-FIXED_GENERATIONS     = 100
+FIXED_POPULATION_SIZE = 70
+FIXED_GENERATIONS     = 50
 N_RUNS                = 10
 
 BASELINE = {
     "mutation_rate"  : 0.10,
-    "crossover_rate" : 0.80,
+    "crossover_rate" : 0.70,
 }
 
 SENSITIVITY_GRIDS = {

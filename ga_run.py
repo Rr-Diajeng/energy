@@ -802,6 +802,84 @@ def plot_ga_pso_comparison(ga_mean_hist, ga_std_hist, ga_stats,
     print(f"Comparison graph → {save_path}")
 
 
+def plot_best_run_comparison(ga_stats, pso_stats,
+                              save_path="comparison_best_run_ga_vs_pso.jpg"):
+    ga_best_idx  = int(np.argmin(ga_stats['all_fitnesses']))
+    pso_best_idx = int(np.argmin(pso_stats['all_fitnesses']))
+
+    ga_hist  = ga_stats['all_histories'][ga_best_idx]
+    pso_hist = pso_stats['all_histories'][pso_best_idx]
+    ga_xs    = list(range(1, len(ga_hist)  + 1))
+    pso_xs   = list(range(1, len(pso_hist) + 1))
+
+    ga_f    = ga_stats['all_fitnesses'][ga_best_idx]
+    ga_cappv = ga_stats['all_cappvs'][ga_best_idx]
+    ga_ebess = ga_stats['all_ebesses'][ga_best_idx]
+
+    pso_f    = pso_stats['all_fitnesses'][pso_best_idx]
+    pso_cappv = pso_stats['all_cappvs'][pso_best_idx]
+    pso_ebess = pso_stats['all_ebesses'][pso_best_idx]
+
+    pct = (ga_f - pso_f) / ga_f * 100
+    winner = "PSO" if pct >= 0 else "GA"
+
+    fig, ax = plt.subplots(figsize=(13, 6))
+    fig.suptitle(
+        f"Best Run Convergence: GA (run {ga_best_idx + 1}) vs PSO (run {pso_best_idx + 1})",
+        fontsize=13, fontweight='bold'
+    )
+
+    ax.plot(ga_xs, ga_hist, color="steelblue", linewidth=2.2,
+            label=(f"GA  run {ga_best_idx + 1} | "
+                   f"fitness={ga_f:.2f} | CAPPV={ga_cappv:.4f} | EBESS={ga_ebess:.2f}"))
+    ax.plot(pso_xs, pso_hist, color="tomato", linewidth=2.2, linestyle='--',
+            label=(f"PSO run {pso_best_idx + 1} | "
+                   f"fitness={pso_f:.2f} | CAPPV={pso_cappv:.4f} | EBESS={pso_ebess:.2f}"))
+
+    # zoom y-axis to converged region (drop first 20%)
+    cutoff = max(1, min(len(ga_hist), len(pso_hist)) // 5)
+    all_late = ga_hist[cutoff:] + pso_hist[cutoff:]
+    ax.set_ylim(min(all_late) * 0.9995, max(all_late) * 1.0005)
+
+    # annotate final values
+    ax.annotate(f"{ga_f:.2f}",
+                xy=(ga_xs[-1], ga_hist[-1]),
+                xytext=(-70, 12), textcoords='offset points',
+                fontsize=8, color="steelblue",
+                arrowprops=dict(arrowstyle='->', color="steelblue", lw=1.2))
+    ax.annotate(f"{pso_f:.2f}",
+                xy=(pso_xs[-1], pso_hist[-1]),
+                xytext=(-70, -18), textcoords='offset points',
+                fontsize=8, color="tomato",
+                arrowprops=dict(arrowstyle='->', color="tomato", lw=1.2))
+
+    ax.set_xlabel("Generation / Iteration", fontsize=10)
+    ax.set_ylabel("Best Fitness (zoomed)", fontsize=10)
+    ax.legend(fontsize=8.5, loc='upper right')
+    ax.grid(linestyle='--', alpha=0.4)
+    ax.set_title(
+        f"{winner} wins best run by {abs(pct):.3f}%  "
+        f"(GA={ga_f:.2f}  PSO={pso_f:.2f})",
+        fontsize=10
+    )
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f"\n{'='*62}")
+    print(f"{'Best Run Comparison':^62}")
+    print(f"{'='*62}")
+    print(f"{'Metric':<24} {'GA run ' + str(ga_best_idx+1):>17} {'PSO run ' + str(pso_best_idx+1):>17}")
+    print(f"{'-'*62}")
+    print(f"{'Fitness':<24} {ga_f:>17.2f} {pso_f:>17.2f}")
+    print(f"{'CAPPV':<24} {ga_cappv:>17.4f} {pso_cappv:>17.4f}")
+    print(f"{'EBESS':<24} {ga_ebess:>17.2f} {pso_ebess:>17.2f}")
+    print(f"{'='*62}")
+    print(f"Winner (lower fitness): {winner}  ({pct:+.3f}%)")
+    print(f"Best run graph → {save_path}")
+
+
 def regenerate_comparison_chart(
         ga_multirun_csv  = "output_convergence/ga_multirun_ga_aci_final.csv",
         pso_multirun_csv = "output_pso/pso_multirun_pso_aci_final.csv",

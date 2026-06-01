@@ -11,7 +11,7 @@ from ga_main import genetic_algorithm, POPULATION_SIZE
 
 FIXED_POPULATION_SIZE = 70
 FIXED_GENERATIONS     = 50
-N_RUNS                = 10
+N_RUNS                = 5
 
 BASELINE = {
     "mutation_rate"  : 0.10,
@@ -307,6 +307,14 @@ def run_sensitivity_analysis():
     _plot_sensitivity_overview(all_results, overview_path)
     print(f"Overview graph    → {overview_path}")
 
+    best_params = dict(BASELINE)
+    for param_name, param_results in all_results.items():
+        means = [r["mean_fitness"] for r in param_results]
+        best_val = param_results[int(np.argmin(means))]["param_value"]
+        best_params[param_name] = best_val
+        print(f"  GA best {param_name}: {best_val}  (mean fitness={min(means):.4f})")
+    print(f"GA best hyperparams: {best_params}")
+    return best_params
 
 
 def _pad_history(hist, target_len):
@@ -504,19 +512,6 @@ def _plot_sensitivity_overview(all_results, save_path):
 #  MULTI-RUN HELPERS  (GA & PSO — N_RUNS each for fair comparison)
 # ═══════════════════════════════════════════════════════════════════
 
-def _run_one_trial_pso():
-    from pso_main import pso, N_PARTICLES
-
-    devnull = open(os.devnull, 'w')
-    sys.stdout = devnull
-    try:
-        fitness_hist, cappv_hist, ebess_hist, tc_hist, _, _ = pso(N_PARTICLES)
-    finally:
-        sys.stdout = sys.__stdout__
-        devnull.close()
-
-    return fitness_hist[-1], cappv_hist[-1], ebess_hist[-1], tc_hist[-1], fitness_hist
-
 
 def _multirun_stats(run_fitnesses, run_cappvs, run_ebesses, run_tcs, run_histories):
     mean_f     = float(np.mean(run_fitnesses))
@@ -533,12 +528,15 @@ def _multirun_stats(run_fitnesses, run_cappvs, run_ebesses, run_tcs, run_histori
     std_history  = list(np.std(norm_hists,  axis=0, ddof=1))
 
     return mean_history, std_history, {
-        "mean_fitness": mean_f, "std_fitness": std_f,
-        "min_fitness":  min_f,  "max_fitness":  max_f,
-        "mean_cappv":   mean_cappv,
-        "mean_ebess":   mean_ebess,
-        "mean_tc":      mean_tc,
+        "mean_fitness":  mean_f,     "std_fitness":  std_f,
+        "min_fitness":   min_f,      "max_fitness":  max_f,
+        "mean_cappv":    mean_cappv,
+        "mean_ebess":    mean_ebess,
+        "mean_tc":       mean_tc,
         "all_histories": norm_hists,
+        "all_fitnesses": list(run_fitnesses),
+        "all_cappvs":    list(run_cappvs),
+        "all_ebesses":   list(run_ebesses),
     }
 
 
@@ -558,10 +556,14 @@ def _save_multirun_csv(path, run_fitnesses, run_cappvs, run_ebesses, run_tcs, st
         w.writerow(["MAX",  round(stats["max_fitness"], 4), "", "", ""])
 
 
-def run_ga_multiple(filename="ga_aci_multirun"):
+def run_ga_multiple(filename="ga_aci_multirun", mutation_rate=None, crossover_rate=None):
+    params = dict(BASELINE)
+    if mutation_rate  is not None: params["mutation_rate"]  = mutation_rate
+    if crossover_rate is not None: params["crossover_rate"] = crossover_rate
+
     print(f"GA MULTI-RUN  [{filename}]")
-    print(f"mutation_rate={BASELINE['mutation_rate']}  "
-          f"crossover_rate={BASELINE['crossover_rate']}  "
+    print(f"mutation_rate={params['mutation_rate']}  "
+          f"crossover_rate={params['crossover_rate']}  "
           f"pop={FIXED_POPULATION_SIZE}  gen={FIXED_GENERATIONS}  N_RUNS={N_RUNS}")
     print(f"{'='*60}")
 
@@ -569,7 +571,7 @@ def run_ga_multiple(filename="ga_aci_multirun"):
 
     for run_idx in range(1, N_RUNS + 1):
         print(f"  run {run_idx}/{N_RUNS} ...", end=" ", flush=True)
-        bf, bc, be, bt, hist = _run_one_trial(**BASELINE)
+        bf, bc, be, bt, hist = _run_one_trial(**params)
         run_fitnesses.append(bf);  run_cappvs.append(bc)
         run_ebesses.append(be);    run_tcs.append(bt)
         run_histories.append(hist)
@@ -582,28 +584,40 @@ def run_ga_multiple(filename="ga_aci_multirun"):
     _save_multirun_csv(csv_path, run_fitnesses, run_cappvs,
                        run_ebesses, run_tcs, stats)
 
+    best_run_idx = int(np.argmin(stats['all_fitnesses']))
+
     print(f"\nCSV  → {csv_path}")
     print(f"Mean Fitness = {stats['mean_fitness']:.4f} ± {stats['std_fitness']:.4f}")
     print(f"Min = {stats['min_fitness']:.4f}  Max = {stats['max_fitness']:.4f}")
     print(f"Mean CAPPV   = {stats['mean_cappv']:.4f}")
     print(f"Mean EBESS   = {stats['mean_ebess']:.4f}")
     print(f"Mean TC      = {stats['mean_tc']:.4f}")
+    print(f"Best Run     = run {best_run_idx + 1}  "
+          f"fitness={stats['all_fitnesses'][best_run_idx]:.4f}  "
+          f"CAPPV={stats['all_cappvs'][best_run_idx]:.4f}  "
+          f"EBESS={stats['all_ebesses'][best_run_idx]:.4f}")
 
     return mean_history, std_history, stats
 
 
-def run_pso_multiple(filename="pso_aci_multirun"):
+def run_pso_multiple(filename="pso_aci_multirun", W=None, C1=None, C2=None):
     from pso_main import N_PARTICLES, MAX_ITER
 
+    params = dict(PSO_BASELINE)
+    if W  is not None: params["W"]  = W
+    if C1 is not None: params["C1"] = C1
+    if C2 is not None: params["C2"] = C2
+
     print(f"PSO MULTI-RUN  [{filename}]")
-    print(f"n_particles={N_PARTICLES}  max_iter={MAX_ITER}  N_RUNS={N_RUNS}")
+    print(f"W={params['W']}  C1={params['C1']}  C2={params['C2']}  "
+          f"n_particles={N_PARTICLES}  max_iter={MAX_ITER}  N_RUNS={N_RUNS}")
     print(f"{'='*60}")
 
     run_fitnesses, run_cappvs, run_ebesses, run_tcs, run_histories = [], [], [], [], []
 
     for run_idx in range(1, N_RUNS + 1):
         print(f"  run {run_idx}/{N_RUNS} ...", end=" ", flush=True)
-        bf, bc, be, bt, hist = _run_one_trial_pso()
+        bf, bc, be, bt, hist = _run_one_trial_pso_params(**params)
         run_fitnesses.append(bf);  run_cappvs.append(bc)
         run_ebesses.append(be);    run_tcs.append(bt)
         run_histories.append(hist)
@@ -621,6 +635,8 @@ def run_pso_multiple(filename="pso_aci_multirun"):
         mean_history, std_history, stats["all_histories"],
         label="PSO", color="#2A9D8F", filename=filename, save_path=graph_path)
 
+    best_run_idx = int(np.argmin(stats['all_fitnesses']))
+
     print(f"\nCSV   → {csv_path}")
     print(f"Graph → {graph_path}")
     print(f"Mean Fitness = {stats['mean_fitness']:.4f} ± {stats['std_fitness']:.4f}")
@@ -628,6 +644,10 @@ def run_pso_multiple(filename="pso_aci_multirun"):
     print(f"Mean CAPPV   = {stats['mean_cappv']:.4f}")
     print(f"Mean EBESS   = {stats['mean_ebess']:.4f}")
     print(f"Mean TC      = {stats['mean_tc']:.4f}")
+    print(f"Best Run     = run {best_run_idx + 1}  "
+          f"fitness={stats['all_fitnesses'][best_run_idx]:.4f}  "
+          f"CAPPV={stats['all_cappvs'][best_run_idx]:.4f}  "
+          f"EBESS={stats['all_ebesses'][best_run_idx]:.4f}")
 
     return mean_history, std_history, stats
 
@@ -754,20 +774,30 @@ def plot_ga_pso_comparison(ga_mean_hist, ga_std_hist, ga_stats,
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close(fig)
 
+    ga_best_run  = int(np.argmin(ga_stats['all_fitnesses']))
+    pso_best_run = int(np.argmin(pso_stats['all_fitnesses']))
+
     pct_improvement = (ga_stats['mean_fitness'] - pso_stats['mean_fitness']) \
                       / ga_stats['mean_fitness'] * 100
-    print("=" * 62)
-    print(f"{'Metric':<24} {'GA':>17} {'PSO':>17}")
-    print("=" * 62)
-    print(f"{'Mean Fitness':<24} {ga_stats['mean_fitness']:>17.2f} {pso_stats['mean_fitness']:>17.2f}")
-    print(f"{'Std Fitness':<24} {ga_stats['std_fitness']:>17.2f} {pso_stats['std_fitness']:>17.2f}")
-    print(f"{'Min Fitness':<24} {ga_stats['min_fitness']:>17.2f} {pso_stats['min_fitness']:>17.2f}")
-    print(f"{'Max Fitness':<24} {ga_stats['max_fitness']:>17.2f} {pso_stats['max_fitness']:>17.2f}")
-    print(f"{'Mean CAPPV':<24} {ga_stats['mean_cappv']:>17.2f} {pso_stats['mean_cappv']:>17.2f}")
-    print(f"{'Mean EBESS':<24} {ga_stats['mean_ebess']:>17.2f} {pso_stats['mean_ebess']:>17.2f}")
-    print(f"{'Mean Total Cost':<24} {ga_stats['mean_tc']:>17.2f} {pso_stats['mean_tc']:>17.2f}")
-    print("=" * 62)
     sign = "↓ better" if pct_improvement >= 0 else "↑ worse"
+
+    W = 66
+    print("=" * W)
+    print(f"{'Metric':<30} {'GA':>17} {'PSO':>17}")
+    print("=" * W)
+    print(f"{'Mean Fitness':<30} {ga_stats['mean_fitness']:>17.2f} {pso_stats['mean_fitness']:>17.2f}")
+    print(f"{'Std Fitness':<30} {ga_stats['std_fitness']:>17.2f} {pso_stats['std_fitness']:>17.2f}")
+    print(f"{'Min Fitness':<30} {ga_stats['min_fitness']:>17.2f} {pso_stats['min_fitness']:>17.2f}")
+    print(f"{'Max Fitness':<30} {ga_stats['max_fitness']:>17.2f} {pso_stats['max_fitness']:>17.2f}")
+    print(f"{'Mean CAPPV':<30} {ga_stats['mean_cappv']:>17.4f} {pso_stats['mean_cappv']:>17.4f}")
+    print(f"{'Mean EBESS':<30} {ga_stats['mean_ebess']:>17.2f} {pso_stats['mean_ebess']:>17.2f}")
+    print(f"{'Mean Total Cost':<30} {ga_stats['mean_tc']:>17.2f} {pso_stats['mean_tc']:>17.2f}")
+    print("-" * W)
+    print(f"{'Best Run #':<30} {'run ' + str(ga_best_run + 1):>17} {'run ' + str(pso_best_run + 1):>17}")
+    print(f"{'Best Run Fitness':<30} {ga_stats['all_fitnesses'][ga_best_run]:>17.2f} {pso_stats['all_fitnesses'][pso_best_run]:>17.2f}")
+    print(f"{'Best Run CAPPV':<30} {ga_stats['all_cappvs'][ga_best_run]:>17.4f} {pso_stats['all_cappvs'][pso_best_run]:>17.4f}")
+    print(f"{'Best Run EBESS':<30} {ga_stats['all_ebesses'][ga_best_run]:>17.2f} {pso_stats['all_ebesses'][pso_best_run]:>17.2f}")
+    print("=" * W)
     print(f"PSO vs GA mean fitness: {pct_improvement:+.3f}%  ({sign})")
     print(f"Comparison graph → {save_path}")
 
@@ -1078,6 +1108,15 @@ def run_pso_sensitivity_analysis():
     overview_path = os.path.join(DIR_SENSITIVITY, "sensitivity_pso_overview.jpg")
     _plot_pso_sensitivity_overview(all_results, overview_path)
     print(f"Overview graph    → {overview_path}")
+
+    best_params = dict(PSO_BASELINE)
+    for param_name, param_results in all_results.items():
+        means = [r["mean_fitness"] for r in param_results]
+        best_val = param_results[int(np.argmin(means))]["param_value"]
+        best_params[param_name] = best_val
+        print(f"  PSO best {param_name}: {best_val}  (mean fitness={min(means):.4f})")
+    print(f"PSO best hyperparams: {best_params}")
+    return best_params
 
 
 def _plot_pso_sensitivity_param(param_name, grid, results, save_path):

@@ -105,7 +105,7 @@ def genetic_algorithm(population_size):
 
     i = 1
     iteration = 0
-    generations = 100
+    generations = 50
 
     fitness_all = []
     cappv_all = []

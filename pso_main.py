@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import csv
 
 N_PARTICLES = 70
-MAX_ITER = 100
+MAX_ITER = 50
 W = 0.7 
 C1 = 1.5 
 C2 = 1.5 

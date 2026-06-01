@@ -51,7 +51,7 @@ def _particles_to_population(particles):
     return population
 
 
-def pso(n_particles=N_PARTICLES):
+def pso(n_particles=N_PARTICLES, w=W, c1=C1, c2=C2):
     particles = init_swarm(n_particles)
 
     evaluated = fitness(_particles_to_population(particles))
@@ -95,14 +95,14 @@ def pso(n_particles=N_PARTICLES):
             r2 = random.random()
 
             particle['v_cappv'] = (
-                W * particle['v_cappv']
-                + C1 * r1 * (particle['pbest_cappv'] - particle['cappv'])
-                + C2 * r2 * (gbest['cappv'] - particle['cappv'])
+                w * particle['v_cappv']
+                + c1 * r1 * (particle['pbest_cappv'] - particle['cappv'])
+                + c2 * r2 * (gbest['cappv'] - particle['cappv'])
             )
             particle['v_ebess'] = (
-                W * particle['v_ebess']
-                + C1 * r1 * (particle['pbest_ebess'] - particle['ebess'])
-                + C2 * r2 * (gbest['ebess'] - particle['ebess'])
+                w * particle['v_ebess']
+                + c1 * r1 * (particle['pbest_ebess'] - particle['ebess'])
+                + c2 * r2 * (gbest['ebess'] - particle['ebess'])
             )
 
             # clamp velocity
